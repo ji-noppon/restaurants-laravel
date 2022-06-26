@@ -6,10 +6,12 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 
+use Illuminate\Support\Facades\Cache;
+
 class PlaceController extends Controller
 {
     public function searchPlace(Request $request)
-    {   
+    {
         $location = $request->query('location');
         $radius   = $request->query('radius')  ;
         if(is_null($location)){
@@ -19,6 +21,10 @@ class PlaceController extends Controller
             $radius = 500;      // set default radius if user not select
         }
         
+        if (Cache::has($location)) {    //return when $location ever search
+            return Cache::get($location);
+        }   
+
         $params = [
             'query' => [
                 'fields'    => 'geometry',
@@ -36,10 +42,10 @@ class PlaceController extends Controller
         $lng = $body['candidates'][0]['geometry']['location']['lng'] ; 
         $position = $lat .','.$lng; // $lat + , + $lng
 
-        return $this->nearbySearch($position,$radius); // send $position to function nearbySearch
+        return $this->nearbySearch($position,$radius,$location); // send $position to function nearbySearch
     }
 
-    function nearbySearch ($position,$radius){
+    function nearbySearch ($position,$radius,$location){
         $params = [
             'query' => [
                 'keyword'   => 'restaurant',
@@ -55,6 +61,8 @@ class PlaceController extends Controller
         $body = json_decode($response->getBody(),true); // true = json -> Array  || not true = json -> obj
         $name = $body['results'];
         //return count($name);
+        Cache::put($location, $body);   // (key,value)
+
         return $body;
     }
 
